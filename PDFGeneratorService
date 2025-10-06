@@ -1,0 +1,38 @@
+public with sharing class PDFGeneratorService {
+    @AuraEnabled
+    public static void generatePdfAndAttachToContact(String htmlContent, Id contactId) {
+        // Encode the HTML as base64
+        String encodedHtml = EncodingUtil.base64Encode(
+            Blob.valueOf(EncodingUtil.urlEncode(htmlContent, 'UTF-8'))
+        );
+
+        // Prepare the page reference
+        PageReference pdfPage = Page.DownloadWordPage;
+        pdfPage.getParameters().put('html', encodedHtml);
+
+        // Get the PDF blob (this call is allowed here, in Apex context)
+        Blob pdfBlob;
+        try {
+            pdfBlob = pdfPage.getContentAsPDF();
+        } catch (Exception e) {
+            throw new AuraHandledException('Failed to generate PDF: ' + e.getMessage());
+        }
+
+        // Save the file
+        ContentVersion cv = new ContentVersion();
+        cv.Title = 'Contact Document';
+        cv.PathOnClient = 'ContactDocument.pdf';
+        cv.VersionData = pdfBlob;
+        cv.Origin = 'H';
+        insert cv;
+
+        // Link to contact
+        ContentDocumentLink link = new ContentDocumentLink();
+        link.ContentDocumentId = [
+            SELECT ContentDocumentId FROM ContentVersion WHERE Id = :cv.Id
+        ].ContentDocumentId;
+        link.LinkedEntityId = contactId;
+        link.ShareType = 'V';
+        insert link;
+    }
+}
