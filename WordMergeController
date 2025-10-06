@@ -1,0 +1,31 @@
+/**
+* @File Name : WordMergeController.cls
+* @Description :
+* @Author :
+* @Last Modified By :
+* @Last Modified On : September 29, 2025
+* @Modification Log :
+*==============================================================================
+* Ver | Date | Author | Modification
+*==============================================================================
+* 1.0 | September 29, 2025 |   | Initial Version
+**/
+
+public with sharing class WordMergeController {
+    @AuraEnabled
+    public static Map<String, Object> getRecordFields(Id recordId) {
+        // Fetch some fields from Contact (expand as needed)
+        Contact c = [
+            SELECT Id, FirstName, LastName, Email 
+            FROM Contact 
+            WHERE Id = :recordId LIMIT 1
+        ];
+
+        Map<String, Object> fields = new Map<String, Object>();
+        fields.put('FirstName', c.FirstName);
+        fields.put('LastName', c.LastName);
+        fields.put('Email', c.Email);
+
+        return fields;
+    }
+}
