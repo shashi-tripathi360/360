@@ -1,0 +1,19 @@
+public class DownloadWordController {
+    public String html { get; set; }
+
+    public DownloadWordController() {
+        String encodedHtml = ApexPages.currentPage().getParameters().get('html');
+        if (encodedHtml != null) {
+            try {
+                // Base64 decode first
+                Blob decodedBlob = EncodingUtil.base64Decode(encodedHtml);
+                String urlDecodedHtml = EncodingUtil.urlDecode(decodedBlob.toString(), 'UTF-8');
+                html = urlDecodedHtml;
+            } catch (Exception e) {
+                html = '<p>Error decoding HTML content.</p>';
+            }
+        } else {
+            html = '<p>No HTML content provided.</p>';
+        }
+    }
+}
