@@ -1,0 +1,150 @@
+import { LightningElement, track, api } from 'lwc';
+import { loadScript } from 'lightning/platformResourceLoader';
+import MAMMOTH from '@salesforce/resourceUrl/MammothJs';
+
+import getRecordFields from '@salesforce/apex/WordMergeController.getRecordFields';
+
+export default class WordMergeViewer extends LightningElement {
+    @api recordId;               // Contact record Id (or any record you're targeting)
+     previewHtml;          // Holds converted HTML for rendering
+      isModalOpen = false;
+       previewHtmlwithtable;          // Holds converted HTML for rendering
+    mammothInitialized = false;  // Flag to prevent multiple script loads
+      libInitialized = false;  // Flag to prevent multiple script loads
+    
+
+    fields;                      // Field values fetched from Apex
+
+    renderedCallback() {
+        if (this.mammothInitialized) return;
+        this.mammothInitialized = true;
+
+        // Load mammoth.js
+        loadScript(this, MAMMOTH + '/mammoth.browser.min.js')
+            .then(() => {
+                console.log(' Mammoth.js loaded');
+            })
+            .catch(error => {
+                console.error(' Error loading Mammoth.js:', error);
+            });
+
+        // Fetch field values from Apex
+        getRecordFields({ recordId: this.recordId })
+            .then(result => {
+                console.log(' Fetched fields:', result);
+                this.fields = result;
+            })
+            .catch(error => {
+                console.error(' Error fetching record fields:', error);
+            });
+
+            if (this.libInitialized) return;
+              this.libInitialized = true;
+
+
+       
+
+
+    }
+
+    handleFileChange(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            const arrayBuffer = reader.result;
+
+            if (window.mammoth) {
+                window.mammoth.convertToHtml({ arrayBuffer })
+                    .then(result => {
+                        console.log(' Extracted HTML:', result.value);
+
+                        let html = result.value;
+
+                        // Replace merge fields like {{FirstName}} with actual values
+                        if (this.fields) {
+                            Object.keys(this.fields).forEach(key => {
+                                const regex = new RegExp(`{{${key}}}`, 'gi');
+                                html = html.replace(regex, this.fields[key] || '');
+                            });
+                        }
+
+                       
+                    this.previewHtml = `${html}`;
+
+                     console.log(' Updated HTML:',this.previewHtml);
+
+                        this.previewHtmlwithtable =  result.value;
+                        this.renderHtml();
+                    })
+                    .catch(err => console.error(' Mammoth conversion error:', err));
+            } else {
+                console.error(' Mammoth is not loaded yet');
+            }
+        };
+
+        reader.readAsArrayBuffer(file);
+    }
+
+    
+
+openModal() {
+    this.isModalOpen = true;
+    // Set content in modal after it's rendered
+    setTimeout(() => {
+        const modalContainer = this.template.querySelector('.doc-preview-modal');
+        if (modalContainer) {
+            modalContainer.innerHTML = this.previewHtml || '<p>No content</p>';
+        }
+    }, 0);
+}
+
+closeModal() {
+    this.isModalOpen = false;
+}
+
+handlePreviewAsPdf() {
+     const htmlContent = this.previewHtml || '<p>No content to export</p>';
+
+
+  
+   /*  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+        <head><meta charset="utf-8"></head>
+        <body>
+            <h1>Test Export</h1>
+            <p>Hello Andy (a_young@dickenson.com)</p>
+            <table>
+                <tr><td>First Name</td><td>Young</td></tr>
+                <tr><td>Last Name</td><td></td></tr>
+            </table>
+        </body>
+    </html>
+`;   */
+
+     console.log('Sending HTML for downloading' ,htmlContent );
+
+    // Base64 encode to safely pass in URL
+    const encoded = btoa(encodeURIComponent(htmlContent));
+
+    //console.log('Sending encoded HTML for downloading' ,encoded );
+
+    const vfUrl = '/apex/DownloadWordPage?html=' + encoded;
+
+    // Open VF page in new tab (to trigger download)
+    window.open(vfUrl, '_blank');
+
+
+   
+}
+
+
+    renderHtml() {
+        const container = this.template.querySelector('.doc-preview');
+        if (container) {
+            container.innerHTML = this.previewHtml || '<p>No content extracted</p>';
+        }
+    }
+}
