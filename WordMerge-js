@@ -3,6 +3,8 @@ import { loadScript } from 'lightning/platformResourceLoader';
 import MAMMOTH from '@salesforce/resourceUrl/MammothJs';
 
 import getRecordFields from '@salesforce/apex/WordMergeController.getRecordFields';
+import generatePdfAndAttachToContact from '@salesforce/apex/PDFGeneratorService.generatePdfAndAttachToContact';
+
 
 export default class WordMergeViewer extends LightningElement {
     @api recordId;               // Contact record Id (or any record you're targeting)
@@ -69,7 +71,8 @@ export default class WordMergeViewer extends LightningElement {
                                 html = html.replace(regex, this.fields[key] || '');
                             });
                         }
-
+                           //  Inject style into the <table> tag only
+                                html = html.replace(/<table>/gi, '<table style="width: 100%; border-collapse: collapse;" border="1">');
                        
                     this.previewHtml = `${html}`;
 
@@ -139,6 +142,27 @@ handlePreviewAsPdf() {
 
    
 }
+
+handleSavePdfToSalesforce() {
+    const htmlContent = this.previewHtml || '<p>No content</p>';
+
+    generatePdfAndAttachToContact({
+        htmlContent: htmlContent,
+        contactId: this.recordId
+    })
+    .then(() => {
+        console.log('PDF saved to contact successfully!');
+    })
+    .catch(error => {
+        console.error('Error saving PDF:', error);
+    });
+}
+
+handleBothSaveAndDownload() {
+    this.handleSavePdfToSalesforce();  // save to Salesforce
+    this.handlePreviewAsPdf();         // open in new tab for download
+}
+
 
 
     renderHtml() {
