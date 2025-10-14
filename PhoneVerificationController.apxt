@@ -1,0 +1,171 @@
+public class PhoneVerificationController {
+    public String phoneNumber { get; set; }
+    public String otp { get; set; }
+    public Boolean submitted { get; set; }
+    private String generatedOtp;
+    Public Contact contact;
+
+    public String otpLength { get; set; }
+
+    public PhoneVerificationController() {
+        submitted = false;
+        otpLength = '4';  // Default to 4-digit OTP
+    }
+
+    // Picklist options for OTP length
+    public List<SelectOption> getOtpLengthOptions() {
+        return new List<SelectOption>{
+            new SelectOption('4', '4 digits'),
+                new SelectOption('5', '5 digits'),
+            new SelectOption('6', '6 digits'),
+                new SelectOption('7', '7 digits'),
+                new SelectOption('8', '8 digits')
+        };
+    }
+
+            // Main method to handle OTP submission
+        public void submitPhoneNumber() {
+            // Fetch contact with matching phone number
+            List<Contact> contacts = [
+                SELECT Id, Phone, otp_attempt_count__c, otp_code__c 
+                FROM Contact 
+                WHERE Phone = :phoneNumber 
+                LIMIT 1
+            ];
+            
+            if (contacts.isEmpty()) {
+                ApexPages.addMessage(new ApexPages.Message(
+                    ApexPages.Severity.ERROR,
+                    'Please enter a valid phone number'
+                ));
+                submitted = false;
+                return;
+            }
+            
+             contact = contacts[0];
+            
+            Integer attemptCount = 0;
+            
+            // Convert string to integer if not null
+            if (contact.otp_attempt_count__c != null) {
+                attemptCount = Integer.valueOf(contact.otp_attempt_count__c);
+            }
+            
+             // Proceed with OTP generation
+            Integer len = Integer.valueOf(otpLength);
+            generatedOtp = RandomStringGeneratorClass.generateRandomString(len);
+            
+            System.debug('Generated OTP: ' + generatedOtp);
+            submitted = true;
+            
+            // Check if attempt count is 3 or more
+            if (attemptCount >= 3) {
+                // Query recent ContactHistory records for otp_attempt_count__c changes
+                List<ContactHistory> historyList = [
+                    SELECT Id, ContactId, Field, OldValue, NewValue, CreatedDate 
+                    FROM ContactHistory 
+                    WHERE ContactId = :contact.Id
+                      AND Field = 'otp_attempt_count__c'
+                    ORDER BY CreatedDate DESC
+                    LIMIT 5
+                ];
+                
+                Boolean isLimitReachedRecently = false;
+                Datetime now = Datetime.now();
+                
+                // Check if any recent change set NewValue to '3' within last 1 minute
+                for (ContactHistory hist : historyList) {
+                    if (hist.NewValue == '3') {
+                        Long diffMillis = now.getTime() - hist.CreatedDate.getTime();
+                        Long diffMinutes = diffMillis / (60 * 1000);
+                        if (diffMinutes < 1) {
+                            isLimitReachedRecently = true;
+                            break;
+                        }else if (diffMinutes > 1){
+                             attemptCount = 1;
+            contact.otp_code__c = generatedOtp;
+            contact.otp_attempt_count__c = String.valueOf(attemptCount);
+                        }
+                            
+                    }
+                }
+                
+                if (isLimitReachedRecently) {
+                    ApexPages.addMessage(new ApexPages.Message(
+                        ApexPages.Severity.ERROR,
+                        'You have reached the limit of sending OTPs for 24 hours. Please try again later.'
+                    ));
+                    submitted = false;
+                    return;
+                }
+            }else{
+            
+           
+            
+            // Increment attempt count and update contact
+            attemptCount += 1;
+            contact.otp_code__c = generatedOtp;
+            contact.otp_attempt_count__c = String.valueOf(attemptCount);
+                
+            }
+            
+            update contact;
+        
+            // Add SMS sending logic here if needed
+                            
+                List<tdc_tsw__Message_Template__c> smsTemplateList = [
+                    SELECT Id, Name, tdc_tsw__SMSBodyNew__c
+                    FROM tdc_tsw__Message_Template__c
+                    WHERE Name = 'OTP_Verification_SMS'
+                    LIMIT 1
+                ];
+                
+                if (!smsTemplateList.isEmpty()) {
+                    tdc_tsw__Message_Template__c smsTemplate = smsTemplateList[0];
+                  //  SendSmsWithPhoneNumberAndTemplateId(contact.Phone, smsTemplate.Id, contact.Id);
+                      String SMSID = smsTemplate.Id;
+                    String ConID=contact.Id;
+                    String Phone = (String) contact.Phone;
+                    tdc_tsw.GlobalSMSSender.SendSmsWithPhoneNumberAndTemplateId(Phone, SMSID, ConID);
+                } else {
+                    ApexPages.addMessage(new ApexPages.Message(
+                        ApexPages.Severity.ERROR,
+                        'SMS Template not found.'
+                    ));
+                }
+
+
+
+
+
+
+        }
+
+
+    // Method to verify OTP
+    public PageReference verifyOtp() {
+        if (otp == generatedOtp) {
+            ApexPages.addMessage(new ApexPages.Message(
+                ApexPages.Severity.INFO,
+                'OTP Verified Successfully!'
+            ));
+            
+            contact.otp_code__c = '';
+             update contact;
+            
+            
+            // Redirect to the success page
+        PageReference successPage = Page.OtpSuccessPage;
+        successPage.setRedirect(true);
+        return successPage;
+            
+            
+        } else {
+            ApexPages.addMessage(new ApexPages.Message(
+                ApexPages.Severity.ERROR,
+                'OTP is not correct. Please try again.'
+            ));
+            return null;
+        }
+    }
+}
