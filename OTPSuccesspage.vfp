@@ -1,0 +1,6 @@
+<apex:page>
+    <h1 style="color: green;">OTP Verified Successfully</h1>
+    <p>Welcome! Your phone number has been verified.</p>
+
+    <apex:outputLink value="/home">Go to Home</apex:outputLink>
+</apex:page>
