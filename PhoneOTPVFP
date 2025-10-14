@@ -1,0 +1,88 @@
+<apex:page controller="PhoneVerificationController" showHeader="false">
+    <apex:form >
+        <apex:pageMessages />
+
+        <style>
+            /* Modal container */
+            .modal {
+                display: none;
+                position: fixed;
+                z-index: 1000;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                overflow: auto;
+                background-color: rgba(0,0,0,0.4);
+            }
+
+            /* Modal content */
+            .modal-content {
+                background-color: #fefefe;
+                margin: 10% auto;
+                padding: 20px;
+                border: 1px solid #888;
+                width: 30%;
+                border-radius: 5px;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            }
+
+            .close {
+                color: #aaa;
+                float: right;
+                font-size: 28px;
+                font-weight: bold;
+            }
+
+            .close:hover,
+            .close:focus {
+                color: black;
+                text-decoration: none;
+                cursor: pointer;
+            }
+        </style>
+
+        <script>
+            function showModal() {
+                document.getElementById("otpModal").style.display = "block";
+            }
+
+            function closeModal() {
+                document.getElementById("otpModal").style.display = "none";
+            }
+
+            window.onload = function() {
+                var submitted = "{!submitted}";
+                if (submitted === "true") {
+                    showModal();
+                }
+            }
+        </script>
+
+        <apex:pageBlock title="Phone Number Verification">
+            <!-- Phone Number Input -->
+            <apex:pageBlockSection rendered="{!NOT submitted}">
+                <apex:outputLabel value="Select OTP Length"/>
+                <apex:selectList value="{!otpLength}" size="1">
+                    <apex:selectOptions value="{!otpLengthOptions}" />
+                </apex:selectList>
+
+                <apex:inputText value="{!phoneNumber}" label="Phone Number" 
+                                html-placeholder="Enter your phone number"/>
+                <apex:commandButton value="Submit" action="{!submitPhoneNumber}" />
+            </apex:pageBlockSection>
+        </apex:pageBlock>
+
+        <!-- Modal Dialog for OTP -->
+        <div id="otpModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <h2>Enter OTP</h2>
+                <apex:outputLabel value="Enter OTP" for="otpInput"/>
+                <apex:inputText value="{!otp}" id="otpInput"/>
+                <br/><br/>
+                <apex:commandButton value="Verify OTP" action="{!verifyOtp}" />
+            </div>
+        </div>
+    </apex:form>
+</apex:page>
